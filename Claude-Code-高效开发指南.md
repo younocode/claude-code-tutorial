@@ -1601,7 +1601,751 @@ claude -c  # 继续昨天的会话
 
 ---
 
-## 附录：快捷键完整列表
+## 十九、反模式：避免这些错误
+
+### 19.1 提示词反模式
+
+#### ❌ 模糊指令
+
+```bash
+# 反模式
+> 帮我改进代码
+
+# 正确做法
+> 优化 @src/utils/parser.ts 的 parseJSON 函数，减少内存分配
+```
+
+#### ❌ 一次性塞太多任务
+
+```bash
+# 反模式
+> 添加用户认证、购物车、支付功能、发送邮件通知
+
+# 正确做法
+> 先实现用户认证功能
+# 完成后再继续下一个
+```
+
+#### ❌ 不提供上下文就期望完美结果
+
+```bash
+# 反模式
+> 修复登录 bug
+
+# 正确做法
+> 用户反馈：登录时报错 "Invalid token"
+> 复现步骤：1. 进入登录页 2. 输入正确密码 3. 点击登录
+> 查看 @src/auth/login.ts 和相关日志
+```
+
+### 19.2 工作流反模式
+
+#### ❌ 不看就接受所有改动
+
+**风险**：可能引入 bug、安全漏洞或破坏现有功能
+
+**正确做法**：
+- 复杂改动使用 Plan Mode 先审查
+- 关键代码改动后运行测试
+- 定期使用 `Esc+Esc` 回滚检查
+
+#### ❌ 会话过长不压缩
+
+**问题**：
+- Token 成本飙升
+- 上下文被截断，丢失重要信息
+- 响应变慢
+
+**正确做法**：
+```bash
+# 完成一个子任务后压缩
+> /compact
+
+# 或开始新会话
+> /clear
+```
+
+#### ❌ 所有任务都用 Opus
+
+**问题**：成本过高
+
+**正确做法**：
+```bash
+# 简单任务
+claude --model haiku "这个函数是做什么的"
+
+# 日常开发
+claude --model sonnet
+
+# 复杂架构决策
+claude --model opus
+```
+
+### 19.3 配置反模式
+
+#### ❌ 没有 CLAUDE.md
+
+**问题**：
+- 每次都要重复解释项目背景
+- Claude 不了解项目约定
+- 可能生成不符合风格的代码
+
+#### ❌ 权限全开
+
+```json
+// 反模式
+{
+  "permissions": {
+    "allow": ["*"]
+  }
+}
+
+// 正确做法
+{
+  "permissions": {
+    "allow": ["Bash(npm:*)", "Edit(./src/**)"],
+    "deny": ["Read(./.env*)", "Bash(rm -rf:*)"]
+  }
+}
+```
+
+#### ❌ 敏感信息放在 CLAUDE.md
+
+```markdown
+<!-- 反模式 -->
+# API Keys
+- OpenAI: sk-xxxxx
+- Database: postgres://user:pass@host
+
+<!-- 正确做法 -->
+# 环境变量
+敏感信息存放在 .env.local（不要让 Claude 读取）
+```
+
+### 19.4 协作反模式
+
+#### ❌ 完全依赖 Claude 做决策
+
+**问题**：Claude 可能不了解业务背景、团队约定
+
+**正确做法**：
+- 架构决策：Claude 提供选项，你做决定
+- 业务逻辑：你描述需求，Claude 实现
+
+#### ❌ 不验证 Claude 的输出
+
+**高风险场景**：
+- 安全相关代码
+- 数据库操作
+- 金融计算
+- 外部 API 调用
+
+**验证清单**：
+- [ ] 代码逻辑正确
+- [ ] 边界情况处理
+- [ ] 错误处理完善
+- [ ] 测试通过
+
+---
+
+## 二十、角色专属指南
+
+### 20.1 前端开发者
+
+#### 常用场景
+
+```bash
+# 组件开发
+> 创建一个 UserCard 组件，使用 Tailwind CSS，包含头像、名称、邮箱
+
+# 状态管理
+> 分析 @src/store/ 的状态管理，找出可能的性能问题
+
+# 样式调试
+> 这个 flexbox 布局在 Safari 上有问题，帮我修复
+
+# 响应式设计
+> 让 @src/components/Dashboard.tsx 适配移动端
+```
+
+#### 推荐 CLAUDE.md 配置
+
+```markdown
+## 前端规范
+- 组件库：shadcn/ui
+- 样式：Tailwind CSS，遵循移动优先
+- 状态管理：Zustand
+- 表单：React Hook Form + Zod
+
+## 组件规范
+- 使用函数式组件
+- Props 用 interface 定义
+- 复杂组件拆分到 components/ 子目录
+```
+
+#### 有用的自定义命令
+
+```markdown
+<!-- .claude/commands/component.md -->
+---
+argument-hint: [ComponentName]
+description: 创建标准 React 组件
+---
+
+在 src/components/ 创建 $1 组件，包含：
+- $1.tsx（使用 TypeScript）
+- $1.test.tsx（使用 Vitest）
+- index.ts 导出
+
+遵循项目现有组件的风格。
+```
+
+### 20.2 后端开发者
+
+#### 常用场景
+
+```bash
+# API 开发
+> 创建 /api/users/:id 的 CRUD 端点，使用现有的数据库连接
+
+# 数据库
+> 分析 @prisma/schema.prisma，建议索引优化
+
+# 性能分析
+> 这个查询很慢，帮我优化
+> [粘贴 SQL 或代码]
+
+# 安全审查
+> 检查 @src/api/ 目录的安全问题，特别是注入和认证
+```
+
+#### 推荐 CLAUDE.md 配置
+
+```markdown
+## 后端规范
+- 框架：Express / Fastify / NestJS
+- 数据库：PostgreSQL + Prisma
+- 认证：JWT
+- 日志：Pino
+
+## API 规范
+- RESTful 设计
+- 统一错误响应格式
+- 请求验证使用 Zod
+- 所有端点需要单元测试
+```
+
+### 20.3 全栈开发者
+
+#### 工作流建议
+
+```bash
+# 1. 从 API 开始
+> 设计并实现用户注册 API
+
+# 2. 然后前端
+> 创建注册表单，调用刚才的 API
+
+# 3. 集成测试
+> 写一个 E2E 测试覆盖注册流程
+
+# 4. 一起提交
+> 创建 commit，包含用户注册功能的前后端代码
+```
+
+### 20.4 DevOps 工程师
+
+#### 常用场景
+
+```bash
+# Docker
+> 优化 @Dockerfile，减小镜像体积
+
+# CI/CD
+> 分析 @.github/workflows/，找出可以并行的步骤
+
+# 基础设施
+> 审查 @terraform/main.tf 的安全配置
+
+# 监控
+> 为这个服务添加 Prometheus 指标
+```
+
+#### 推荐 MCP 集成
+
+```bash
+# AWS
+claude mcp add aws -- npx -y @anthropic/mcp-server-aws
+
+# Kubernetes
+claude mcp add k8s -- npx -y @anthropic/mcp-server-kubernetes
+```
+
+### 20.5 技术负责人 / 架构师
+
+#### 使用策略
+
+```bash
+# 1. 代码审查
+> 审查这个 PR 的架构影响，特别关注扩展性和维护性
+
+# 2. 技术决策
+> ultrathink: 分析使用 GraphQL vs REST 的利弊，考虑我们的团队规模和项目特点
+
+# 3. 遗留代码分析
+> 分析 @src/legacy/ 模块，制定重构计划
+
+# 4. 文档生成
+> 为 @src/core/ 生成架构文档，包含模块关系图
+```
+
+#### Plan Mode 的最佳使用
+
+```bash
+# 启动 Plan Mode
+claude --permission-mode plan
+
+# 让 Claude 分析但不执行
+> 如何将这个单体应用拆分为微服务？给我一个详细的迁移计划
+
+# 审查计划后再决定是否执行
+```
+
+---
+
+## 二十一、提示词模板库
+
+### 21.1 代码理解类
+
+#### 项目概览
+
+```
+给我这个项目的全面概览：
+1. 项目目的和主要功能
+2. 技术栈和依赖
+3. 目录结构和模块划分
+4. 入口文件和核心流程
+5. 开发和部署方式
+```
+
+#### 函数/模块分析
+
+```
+分析 @[文件路径]：
+1. 主要功能和职责
+2. 输入输出
+3. 依赖关系
+4. 潜在问题或改进点
+```
+
+#### 数据流追踪
+
+```
+追踪 [功能名称] 的数据流：
+1. 从用户输入开始
+2. 经过哪些函数/模块
+3. 数据如何转换
+4. 最终输出/存储
+```
+
+### 21.2 代码修改类
+
+#### Bug 修复
+
+```
+修复这个 bug：
+- 现象：[描述问题]
+- 复现步骤：[步骤]
+- 期望行为：[应该怎样]
+- 相关文件：@[文件]
+
+请：
+1. 定位问题根因
+2. 修复代码
+3. 添加防止回归的测试
+```
+
+#### 功能添加
+
+```
+添加 [功能名称] 功能：
+- 需求：[详细描述]
+- 影响范围：[涉及的模块]
+- 约束：
+  - 使用现有的 [xxx] 组件/服务
+  - 不引入新依赖
+  - 保持与现有代码风格一致
+
+请先说明实现方案，我确认后再开始编码。
+```
+
+#### 重构
+
+```
+重构 @[文件路径]：
+- 目标：[提高可读性/性能/可测试性]
+- 约束：
+  - 不改变外部接口
+  - 保持现有测试通过
+  - 逐步进行，每步可验证
+```
+
+### 21.3 代码审查类
+
+#### PR 审查
+
+```
+审查这个 PR，关注：
+
+## 功能正确性
+- 是否实现了需求
+- 边界情况处理
+
+## 代码质量
+- 可读性和命名
+- 复杂度
+- 重复代码
+
+## 安全性
+- 输入验证
+- 敏感数据处理
+- 权限检查
+
+## 性能
+- 明显的性能问题
+- N+1 查询
+- 内存泄漏风险
+
+## 测试
+- 测试覆盖是否充分
+- 测试质量
+
+输出格式：按 P0（阻断）/ P1（重要）/ P2（建议）分类
+```
+
+#### 安全审查
+
+```
+对 @[目录/文件] 进行安全审查：
+
+检查项：
+1. SQL 注入
+2. XSS
+3. CSRF
+4. 敏感数据泄露
+5. 认证/授权问题
+6. 依赖漏洞
+7. 配置安全
+
+对每个发现：
+- 严重程度（高/中/低）
+- 问题位置
+- 风险说明
+- 修复建议
+```
+
+### 21.4 测试类
+
+#### 单元测试生成
+
+```
+为 @[文件路径] 生成单元测试：
+
+要求：
+- 使用 [测试框架]
+- 覆盖主要功能路径
+- 覆盖边界情况
+- 覆盖错误处理
+- Mock 外部依赖
+
+遵循项目现有的测试风格。
+```
+
+#### E2E 测试场景
+
+```
+为 [功能] 设计 E2E 测试场景：
+
+用户故事：[描述]
+
+测试场景（按优先级）：
+1. Happy path
+2. 边界情况
+3. 错误处理
+4. 并发情况（如适用）
+
+使用 [Playwright/Cypress] 框架。
+```
+
+### 21.5 文档类
+
+#### API 文档
+
+```
+为 @[API 文件] 生成 API 文档：
+
+包含：
+- 端点描述
+- 请求方法和 URL
+- 请求参数（path/query/body）
+- 请求示例
+- 响应格式
+- 响应示例
+- 错误码说明
+
+格式：OpenAPI 3.0 / Markdown
+```
+
+#### 架构文档
+
+```
+为 @[目录] 生成架构文档：
+
+包含：
+1. 模块概述
+2. 核心组件及职责
+3. 组件间关系（如可能，用 ASCII 图）
+4. 数据流
+5. 关键设计决策及原因
+6. 扩展点
+```
+
+### 21.6 调试类
+
+#### 错误分析
+
+```
+分析这个错误：
+
+错误信息：
+[粘贴错误]
+
+上下文：
+- 触发场景：[描述]
+- 环境：[开发/生产/测试]
+- 最近的改动：[如有]
+
+请：
+1. 解释错误含义
+2. 可能的原因（按可能性排序）
+3. 如何定位
+4. 如何修复
+```
+
+#### 性能分析
+
+```
+分析 @[文件/函数] 的性能问题：
+
+现象：[慢/内存高/CPU 高]
+数据量：[描述]
+当前耗时/资源：[如有数据]
+
+请：
+1. 识别性能瓶颈
+2. 解释原因
+3. 提供优化方案（按效果排序）
+4. 每个方案的权衡
+```
+
+---
+
+## 二十二、进阶主题
+
+### 22.1 多模态能力
+
+Claude Code 支持图片输入，可用于：
+
+#### 截图分析
+
+```bash
+# 粘贴截图（Ctrl+V）后
+> 分析这个 UI 截图，指出布局问题
+
+> 根据这个设计稿实现组件
+```
+
+#### 错误截图调试
+
+```bash
+# 粘贴错误截图后
+> 这是控制台的错误截图，帮我分析问题
+```
+
+#### 图表理解
+
+```bash
+# 粘贴架构图后
+> 理解这个架构图，然后帮我实现对应的代码结构
+```
+
+### 22.2 Claude Agent SDK
+
+使用 Claude Agent SDK 可以构建自定义的代码智能体。
+
+#### 安装
+
+```bash
+npm install @anthropic-ai/claude-code-sdk
+```
+
+#### 基本使用
+
+```typescript
+import { Agent } from '@anthropic-ai/claude-code-sdk';
+
+const agent = new Agent({
+  model: 'sonnet',
+  tools: ['Read', 'Edit', 'Bash'],
+});
+
+const result = await agent.run({
+  prompt: '分析 src/ 目录的代码结构',
+});
+```
+
+#### 自定义工具
+
+```typescript
+const customTool = {
+  name: 'deploy',
+  description: 'Deploy to staging',
+  execute: async (params) => {
+    // 自定义部署逻辑
+  }
+};
+
+const agent = new Agent({
+  tools: [...defaultTools, customTool],
+});
+```
+
+### 22.3 Headless 模式与自动化
+
+#### CI/CD 集成
+
+```bash
+# 非交互式运行
+claude -p "检查代码风格问题" --output-format json
+
+# 在 CI 中使用
+- name: Code Review
+  run: |
+    RESULT=$(claude -p "审查 src/ 的安全问题" --model haiku)
+    echo "$RESULT" >> $GITHUB_STEP_SUMMARY
+```
+
+#### 批量处理
+
+```bash
+# 批量修复文件
+for file in src/**/*.ts; do
+  claude -p "修复 @$file 的 TypeScript 错误" --model haiku
+done
+```
+
+### 22.4 扩展思考（Extended Thinking）
+
+#### 何时使用
+
+- 复杂架构设计
+- 多步推理问题
+- 需要权衡多个方案
+- Debug 复杂问题
+
+#### 触发方式
+
+```bash
+# 前缀触发
+> think: 分析这个性能问题
+> ultrathink: 设计微服务拆分方案
+
+# 全局启用
+/config  # 选择 "Enable extended thinking"
+```
+
+#### 思考预算控制
+
+```bash
+# 环境变量
+export MAX_THINKING_TOKENS=16000
+
+# 或在 settings.json
+{
+  "env": {
+    "MAX_THINKING_TOKENS": "16000"
+  }
+}
+```
+
+### 22.5 远程开发环境
+
+#### SSH 远程使用
+
+```bash
+# 在远程服务器安装
+ssh user@server "npm install -g @anthropic-ai/claude-code"
+
+# 连接后使用
+ssh user@server
+cd /path/to/project
+claude
+```
+
+#### Dev Container 配置
+
+```json
+// .devcontainer/devcontainer.json
+{
+  "name": "Dev with Claude",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:18",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
+```
+
+### 22.6 企业级部署
+
+#### 代理配置
+
+```bash
+export HTTPS_PROXY=http://proxy.company.com:8080
+export HTTP_PROXY=http://proxy.company.com:8080
+claude
+```
+
+#### 私有化部署
+
+```bash
+# 自定义 API 端点
+export ANTHROPIC_API_URL=https://api.internal.company.com
+claude
+```
+
+#### 使用限制与配额
+
+```json
+// 企业级 settings.json
+{
+  "permissions": {
+    "defaultMode": "normal"
+  },
+  "env": {
+    "MAX_THINKING_TOKENS": "10000",
+    "CLAUDE_CODE_COST_WARNING_THRESHOLD": "10.00"
+  }
+}
+```
+
+---
+
+## 附录 A：快捷键完整列表
 
 | 快捷键 | 功能 | 备注 |
 |--------|------|------|
@@ -1617,6 +2361,63 @@ claude -c  # 继续昨天的会话
 | `Esc + Esc` | 撤销代码改动 | |
 | `Option+P` / `Alt+P` | 切换模型 | |
 | `Up/Down` | 导航历史 | |
+
+---
+
+## 附录 B：常用斜杠命令速查
+
+| 命令 | 用途 | 常用场景 |
+|------|------|---------|
+| `/help` | 查看帮助 | 随时 |
+| `/cost` | 查看成本 | 每个任务后 |
+| `/compact` | 压缩上下文 | 会话过长时 |
+| `/clear` | 清除对话 | 切换任务时 |
+| `/model` | 切换模型 | 调整成本/能力 |
+| `/config` | 打开设置 | 配置偏好 |
+| `/memory` | 编辑记忆 | 更新项目信息 |
+| `/export` | 导出对话 | 保存重要讨论 |
+| `/rename` | 命名会话 | 便于恢复 |
+| `/resume` | 恢复会话 | 继续之前工作 |
+
+---
+
+## 附录 C：一页速查表
+
+```
+╔══════════════════════════════════════════════════════════════════════╗
+║                      CLAUDE CODE 速查表                               ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ 启动方式                                                              ║
+║   claude              # 交互式                                        ║
+║   claude -c           # 继续上次                                      ║
+║   claude -p "..."     # 单次查询                                      ║
+║   cat x | claude -p   # 管道模式                                      ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ 核心快捷键                                                            ║
+║   Esc+Esc     撤销改动    Ctrl+C      取消操作                        ║
+║   Shift+Tab   切权限      Ctrl+L      清屏                            ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ 快捷前缀                                                              ║
+║   @file       引用文件    !cmd        执行命令                        ║
+║   #note       写入记忆    /cmd        斜杠命令                        ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ 必知命令                                                              ║
+║   /cost       查成本      /compact    压缩上下文                      ║
+║   /clear      清历史      /model      切模型                          ║
+║   /memory     编辑记忆    /config     打开设置                        ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ 模型选择                                                              ║
+║   Haiku   便宜快速 → 简单查询                                         ║
+║   Sonnet  均衡    → 日常开发                                          ║
+║   Opus    强大    → 复杂任务                                          ║
+╠══════════════════════════════════════════════════════════════════════╣
+║ 配置文件位置                                                          ║
+║   ./CLAUDE.md              项目记忆（提交）                           ║
+║   ./CLAUDE.local.md        个人笔记（不提交）                         ║
+║   ./.claude/settings.json  项目配置                                   ║
+║   ~/.claude/settings.json  全局配置                                   ║
+╚══════════════════════════════════════════════════════════════════════╝
+```
 
 ---
 
