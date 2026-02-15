@@ -1,0 +1,208 @@
+Implement the following plan:
+
+# 优化 Claude Code 教程项目
+
+## Context
+
+本项目是一个 Claude Code 教程仓库，包含两个核心文件：
+- `CLAUDE.md` — 项目配置模板（引用了过时的技术栈版本）
+- `Claude-Code-高效开发指南.md` — Claude Code 使用指南（缺少大量 2025-2026 新功能）
+
+**问题**：两份文档中的技术栈版本和 Claude Code 功能信息严重滞后，需要基于最新文档进行全面更新。
+
+---
+
+## 第一部分：更新 CLAUDE.md 技术栈版本
+
+**文件**: `CLAUDE.md`
+
+### 1.1 技术栈版本更新
+
+| 项目 | 当前 | 更新为 |
+|------|------|--------|
+| Next.js | 14 | 16 |
+| React | 18 | 19 |
+| TypeScript | 5.x | 5.9 |
+| Tailwind CSS | (未标版本) | v4 |
+| Zustand | (未标版本) | 5 |
+| Vitest | (未标版本) | 4 |
+| pnpm | (未标版本) | 10 |
+
+### 1.2 快速命令更新
+- `npm run` → `pnpm`（与声明的包管理器一致）
+- 添加 Turbopack 说明（Next.js 16 默认）
+- `next lint` 已移除，改用 ESLint 直接配置
+
+### 1.3 代码规范补充
+- React 19: ref 直接作为 props，不再需要 forwardRef
+- React 19: Server Components 优先
+- Next.js 16: cookies()/headers()/params 必须 await
+- Tailwind v4: CSS-first 配置，`@import "tailwindcss"`，无需 `tailwind.config.js`
+
+### 1.4 项目结构更新
+- 添加 `proxy.ts`（Next.js 16 替代 middleware.ts）
+- 标注 Tailwind v4 的 CSS-first 配置方式
+
+---
+
+## 第二部分：更新 Claude-Code-高效开发指南.md
+
+**文件**: `Claude-Code-高效开发指南.md`
+
+### 2.1 模型与定价修正（全文影响）
+
+**当前错误的定价表** → 更新为：
+
+| 模型 | 输入 | 输出 | 适用场景 |
+|------|------|------|---------|
+| Haiku 4.5 | $1 | $5 | 简单查询、搜索 |
+| Sonnet 4.5 | $3 | $15 | 日常开发 |
+| Opus 4.6 | $5 | $25 | 复杂架构、深度分析 |
+
+全文涉及模型名称的地方统一更新：Opus → Opus 4.6, Sonnet → Sonnet 4.5, Haiku → Haiku 4.5
+
+### 2.2 新增章节：自动记忆系统 (Auto Memory)
+
+在第二章"上下文管理"中新增小节：
+- `~/.claude/projects/<project>/memory/MEMORY.md` 自动保存项目上下文
+- 与手动 CLAUDE.md 的区别（自动 vs 手动、个人 vs 团队）
+- 四层内存体系图更新为包含 Auto Memory 的五层体系
+
+### 2.3 新增章节：Skills 系统
+
+改写第十一章"自定义命令"为 Skills 系统：
+- Skills 统一了斜杠命令和自定义指令（v2.1.3+）
+- SKILL.md 文件格式与 frontmatter
+- 热重载、分叉上下文、参数支持
+- 从 `.claude/commands/` 到 `.claude/skills/` 的迁移路径
+
+### 2.4 新增章节：任务管理系统 (Task System)
+
+替代旧的 Todo 系统：
+- TaskCreate/TaskUpdate/TaskGet/TaskList 四个核心工具
+- 任务依赖关系（blocks/blockedBy）
+- 跨会话持久化
+- `/tasks` 命令（替代 `/todos`）
+
+### 2.5 Hooks 章节扩展
+
+当前仅记录 ~5 个事件 → 更新为 14 个事件：
+
+新增事件：PermissionRequest, PostToolUseFailure, Notification, SubagentStart, SubagentStop, TeammateIdle, TaskCompleted, PreCompact, SessionEnd
+
+新增 Hook 类型：
+- prompt hooks（发送到模型评估）
+- agent hooks（生成子代理执行）
+- async hooks（异步非阻塞执行）
+
+### 2.6 权限管理更新
+
+3 种模式 → 5 种模式：
+
+| 模式 | 说明 |
+|------|------|
+| Normal | 每次操作需确认 |
+| AcceptEdits | 自动批准编辑 |
+| DontAsk | 自动批准大多数操作 |
+| Plan | 只规划不执行 |
+| BypassPermissions | 跳过所有权限检查 |
+
+新增：通配符权限 `Bash(npm *)`、Skill 专属权限 `Skill(commit)`
+
+### 2.7 斜杠命令更新
+
+新增命令：`/fast`、`/teleport`、`/remote-env`、`/keybindings`、`/hooks`、`/tasks`
+
+移除/重命名：`/todos` → `/tasks`
+
+### 2.8 新增小节：Fast Mode
+
+- `/fast` 切换，同模型更快输出
+- 定价为标准 6 倍
+- 仅 Opus 4.6 支持
+
+### 2.9 新增小节：快捷键配置
+
+- `~/.claude/keybindings.json` 完全自定义
+- `/keybindings` 命令
+- 新增快捷键：Ctrl+T（任务列表）、Ctrl+B（后台任务）、Ctrl+G（外部编辑器）、Shift+Enter（换行）
+
+### 2.10 新增小节：Agent Teams (实验性)
+
+- 多会话协调，并行工作
+- 共享任务列表与依赖管理
+- 适用场景：大型重构、前后端并行、并行调试
+
+### 2.11 新增小节：/teleport 会话转移
+
+- 将终端会话转移到 claude.ai/code Web 界面
+- 保持完整上下文
+
+### 2.12 Agent SDK 更新
+
+- 包名变更：`@anthropic-ai/claude-code-sdk` → `@anthropic-ai/claude-agent-sdk`
+- zod 依赖：^4.0.0
+- 更新代码示例
+
+### 2.13 MCP 章节补充
+
+- Tool Search 懒加载（减少 95% 上下文占用）
+- OAuth 支持
+- list_changed 通知
+
+### 2.14 核心工具表补充
+
+添加：TaskCreate、TaskUpdate、TaskGet、TaskList、Skill
+
+### 2.15 内嵌 CLAUDE.md 模板同步更新
+
+第九章的推荐模板（~行 589-637）同步更新技术栈版本
+
+### 2.16 附录与索引更新
+
+- 目录新增条目
+- 场景索引新增条目
+- 附录 A 快捷键表更新
+- 附录 C 速查表更新（模型名、命令）
+- 页脚日期更新
+
+---
+
+## 实施顺序
+
+1. **CLAUDE.md** — 技术栈版本全面更新（1.1-1.4）
+2. **指南 - 事实修正** — 模型名称、定价、命令重命名（2.1, 2.7, 2.12, 2.14）
+3. **指南 - 核心新功能** — Auto Memory、Skills、Task System（2.2-2.4）
+4. **指南 - 系统更新** — Hooks 扩展、权限更新、MCP 补充（2.5, 2.6, 2.13）
+5. **指南 - 新增小节** — Fast Mode、快捷键、Agent Teams、/teleport（2.8-2.11）
+6. **指南 - 收尾** — 内嵌模板同步、附录索引更新（2.15-2.16）
+
+## 验证方式
+
+1. 全文搜索旧版本引用（"Next.js 14"、"React 18"、"Haiku.*\\$0.25"）确认无遗漏
+2. 检查所有内部锚点链接是否有效
+3. 对比官方文档确认事实准确性
+4. 检查中英文混排格式一致性
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/tianyang/.REDACTED.jsonl
+
+---
+
+继续
+
+---
+
+继续
+
+---
+
+你完成了了
+
+---
+
+[Request interrupted by user]
+
+---
+
+你完成了嘛

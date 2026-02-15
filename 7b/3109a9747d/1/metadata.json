@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.4",
+  "checkpoint_id": "7b3109a9747d",
+  "session_id": "e79adc56-b86f-4e92-87db-d87c9f9e8cf6",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-15T05:56:56.874375Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    "CLAUDE.md",
+    "Claude-Code-高效开发指南.md"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 65,
+    "cache_creation_tokens": 206909,
+    "cache_read_tokens": 4038765,
+    "output_tokens": 8698,
+    "api_call_count": 58
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-15T05:56:56.135369Z",
+    "agent_lines": 559,
+    "human_added": 6,
+    "human_modified": 8,
+    "human_removed": 0,
+    "total_committed": 568,
+    "agent_percentage": 98.41549295774648
+  },
+  "transcript_path": ".claude/projects/-Users-tianyang-Code-younocode-claude-code-tutorial/e79adc56-b86f-4e92-87db-d87c9f9e8cf6.jsonl"
+}
