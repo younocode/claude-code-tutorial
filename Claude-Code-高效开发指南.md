@@ -67,13 +67,19 @@ claude
 |----------|---------|
 | **快速上手** | [5分钟快速入门](#-5-分钟快速入门) |
 | **理解陌生代码库** | [迭代式探索](#73-迭代式探索) |
-| **让 Claude 记住项目约定** | [四层内存体系](#21-四层内存体系) |
+| **让 Claude 记住项目约定** | [五层内存体系](#21-五层内存体系) |
 | **减少 Token 消耗** | [Token 优化策略](#22-token-优化策略)、[成本优化](#十五成本优化策略) |
 | **自动格式化代码** | [Hooks 自动化](#三hooks-自动化) |
 | **连接 GitHub/数据库** | [MCP Servers](#四mcp-servers-扩展能力) |
 | **保护敏感文件** | [权限管理](#五权限管理) |
 | **处理复杂任务** | [提示词技巧](#七提示词技巧)、[人机协作](#十八人机协作心智模型) |
 | **团队一起用** | [团队协作模式](#十七团队协作模式) |
+| **使用自动记忆** | [自动记忆系统](#23-自动记忆系统-auto-memory) |
+| **使用 Skills** | [Skills 系统](#十一skills-系统) |
+| **管理任务列表** | [任务管理系统](#103-任务管理系统-task-system) |
+| **快速输出模式** | [Fast Mode](#64-fast-mode) |
+| **多代理协作** | [Agent Teams](#227-agent-teams-实验性) |
+| **转移会话到 Web** | [/teleport 会话转移](#126-teleport-会话转移) |
 | **Claude 出错了** | [常见问题与疑难排解](#十四常见问题与疑难排解) |
 | **控制成本** | [成本优化策略](#十五成本优化策略) |
 | **与 IDE 配合** | [IDE 与工具链集成](#十六ide-与工具链集成) |
@@ -97,7 +103,7 @@ claude
 
 **进阶篇**
 10. [CLI 参数与斜杠命令速查](#十cli-参数与斜杠命令速查)
-11. [自定义命令](#十一自定义命令)
+11. [Skills 系统](#十一skills-系统)
 12. [会话管理](#十二会话管理)
 13. [深入理解 Agent 架构](#十三深入理解-agent-架构)
 
@@ -142,12 +148,17 @@ Claude Code 是一个 **主动式代码助手**，区别于传统的"问答式"A
 | `Glob` | 文件搜索 | 查找特定类型文件 |
 | `WebFetch` | 获取网页 | 查阅文档、API 参考 |
 | `WebSearch` | 网络搜索 | 查找解决方案 |
+| `TaskCreate` | 创建任务 | 规划多步骤工作 |
+| `TaskUpdate` | 更新任务 | 标记进度、设置依赖 |
+| `TaskGet` | 获取任务 | 查看任务详情 |
+| `TaskList` | 列出任务 | 查看所有任务状态 |
+| `Skill` | 执行技能 | 调用自定义 Skills |
 
 ---
 
 ## 二、上下文管理与 Token 优化
 
-### 2.1 四层内存体系
+### 2.1 五层内存体系
 
 Claude Code 使用分层的记忆系统，优先级从高到低：
 
@@ -157,9 +168,11 @@ Claude Code 使用分层的记忆系统，优先级从高到低：
 ├─────────────────────────────────────────────────────────┤
 │ 2. 项目规则: ./.claude/rules/*.md                      │  ← 模块化指令
 ├─────────────────────────────────────────────────────────┤
-│ 3. 用户内存: ~/.claude/CLAUDE.md                       │  ← 个人全局设置
+│ 3. 自动记忆: ~/.claude/projects/<project>/memory/      │  ← 自动保存，个人项目上下文
 ├─────────────────────────────────────────────────────────┤
-│ 4. 项目本地: ./CLAUDE.local.md                         │  ← 个人笔记，不提交
+│ 4. 用户内存: ~/.claude/CLAUDE.md                       │  ← 个人全局设置
+├─────────────────────────────────────────────────────────┤
+│ 5. 项目本地: ./CLAUDE.local.md                         │  ← 个人笔记，不提交
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -196,6 +209,41 @@ export MAX_THINKING_TOKENS=8000  # 默认 31,999
 /cost  # 显示当前会话的 token 统计
 ```
 
+### 2.3 自动记忆系统 (Auto Memory)
+
+Claude Code 会自动在 `~/.claude/projects/<project>/memory/MEMORY.md` 中保存项目上下文，跨会话持久化。
+
+#### 与手动 CLAUDE.md 的区别
+
+| 特性 | CLAUDE.md | Auto Memory |
+|------|-----------|-------------|
+| 管理方式 | 手动维护 | Claude 自动写入 |
+| 作用范围 | 团队共享（提交到 git） | 个人（本地存储） |
+| 内容类型 | 项目规范、命令、约定 | 工作模式、调试经验、偏好 |
+| 生效方式 | 每次会话自动加载 | 每次会话自动加载到系统提示 |
+
+#### 常见用法
+
+```bash
+# 主动让 Claude 记住偏好
+> 记住：这个项目始终使用 pnpm，不要用 npm
+
+# Claude 会自动保存到 MEMORY.md
+
+# 查看自动记忆
+> 看看你记住了什么关于这个项目的内容
+
+# 让 Claude 忘记某个记忆
+> 忘记关于使用 npm 的记忆
+```
+
+#### 最佳实践
+
+- **团队共享的规范** → 写入 `CLAUDE.md`（提交到 git）
+- **个人工作习惯** → 让 Auto Memory 自动记录
+- **MEMORY.md 前 200 行** 会加入系统提示，保持简洁
+- 可以创建子文件（如 `debugging.md`、`patterns.md`）存储详细笔记
+
 ---
 
 ## 三、Hooks 自动化
@@ -204,17 +252,93 @@ export MAX_THINKING_TOKENS=8000  # 默认 31,999
 
 ```
 Session开始 ──→ UserPromptSubmit ──→ PreToolUse ──→ 工具执行 ──→ PostToolUse ──→ Stop
-     │                                    │                           │
-     ▼                                    ▼                           ▼
- SessionStart                      可阻止操作                    可触发后处理
+     │                                    │              │              │
+     ▼                                    ▼              ▼              ▼
+ SessionStart                      可阻止操作    PostToolUseFailure  可触发后处理
+                                                                       │
+                                                                       ▼
+                                                              PermissionRequest
+                                                              Notification
+                                                              TaskCompleted
+                                                              PreCompact
+                                                              SessionEnd
 ```
 
-### 3.2 配置文件位置
+#### 完整事件列表（14 个）
+
+| 事件 | 触发时机 | 用途 |
+|------|---------|------|
+| `SessionStart` | 会话开始 | 初始化环境 |
+| `SessionEnd` | 会话结束 | 清理资源、保存状态 |
+| `UserPromptSubmit` | 用户发送提示 | 预处理输入 |
+| `PreToolUse` | 工具执行前 | 阻止或修改操作 |
+| `PostToolUse` | 工具执行后 | 后处理（格式化等） |
+| `PostToolUseFailure` | 工具执行失败后 | 错误处理、告警 |
+| `PermissionRequest` | 权限请求时 | 自定义权限逻辑 |
+| `Notification` | 通知事件 | 发送外部通知 |
+| `SubagentStart` | 子代理启动 | 监控子代理 |
+| `SubagentStop` | 子代理停止 | 清理子代理资源 |
+| `TeammateIdle` | 队友代理空闲 | Agent Teams 协调 |
+| `TaskCompleted` | 任务完成 | 触发后续流程 |
+| `PreCompact` | 上下文压缩前 | 保存关键信息 |
+| `Stop` | Claude 停止响应 | 最终处理 |
+
+### 3.2 Hook 类型
+
+#### command hook（默认）
+
+执行 shell 命令，返回码控制流程：
+
+- `0` = 允许继续
+- `2` = 阻止操作
+
+```json
+{
+  "type": "command",
+  "command": "echo 'hello'"
+}
+```
+
+#### prompt hook
+
+将内容发送到模型进行评估，模型决定是否继续：
+
+```json
+{
+  "type": "prompt",
+  "prompt": "检查这个文件修改是否符合项目规范，如果不符合请阻止并说明原因"
+}
+```
+
+#### agent hook
+
+生成一个子代理来执行复杂逻辑：
+
+```json
+{
+  "type": "agent",
+  "prompt": "分析这个工具调用的结果，如果发现测试失败则自动修复"
+}
+```
+
+#### async hook
+
+异步非阻塞执行，不等待结果：
+
+```json
+{
+  "type": "command",
+  "command": "curl -X POST https://slack.webhook/... -d '{\"text\": \"Claude 完成了任务\"}'",
+  "async": true
+}
+```
+
+### 3.3 配置文件位置
 
 - 项目级：`.claude/settings.json`
 - 用户级：`~/.claude/settings.json`
 
-### 3.3 实用 Hook 示例
+### 3.4 实用 Hook 示例
 
 #### 自动格式化（保存后自动 prettier）
 
@@ -342,6 +466,29 @@ claude mcp add --scope user stripe -- ...
 > Compare @postgres:schema://users with @docs/models.md
 ```
 
+### 4.5 Tool Search 懒加载
+
+MCP 服务器可能提供大量工具，Claude Code 使用 **Tool Search** 机制进行懒加载，减少约 95% 的上下文占用：
+
+- 启动时仅加载工具索引（名称 + 简要描述）
+- 用户请求相关功能时，才加载完整工具定义
+- 对于工具数量多的 MCP 服务器（如 GitHub），效果尤为显著
+
+### 4.6 OAuth 支持
+
+MCP 服务器现在支持 OAuth 认证流程：
+
+```bash
+# 添加支持 OAuth 的 MCP 服务器
+claude mcp add my-service --transport http https://api.example.com/mcp
+
+# 首次使用时会引导 OAuth 授权流程
+```
+
+### 4.7 list_changed 通知
+
+MCP 服务器可以通过 `list_changed` 通知 Claude Code 工具列表已更新，无需重启即可获取新工具。
+
 ---
 
 ## 五、权限管理
@@ -371,17 +518,38 @@ claude mcp add --scope user stripe -- ...
 }
 ```
 
-### 5.2 三种权限模式
+### 5.2 五种权限模式
 
 | 模式 | 说明 | 适用场景 |
 |------|------|---------|
 | **Normal** | 每次操作需确认 | 敏感操作、学习阶段 |
-| **Auto-Accept** | 自动批准编辑 | 日常开发 |
+| **AcceptEdits** | 自动批准文件编辑 | 日常开发 |
+| **DontAsk** | 自动批准大多数操作 | 信任环境下的高效开发 |
 | **Plan** | 只规划不执行 | 架构设计、风险评估 |
+| **BypassPermissions** | 跳过所有权限检查 | CI/CD、完全信任的自动化场景 |
 
 **切换方式**：`Shift+Tab` 循环切换
 
-### 5.3 启动时指定模式
+### 5.3 通配符权限与 Skill 权限
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(pnpm *)",
+      "Bash(git *)",
+      "Skill(commit)",
+      "Skill(review)"
+    ]
+  }
+}
+```
+
+- `Bash(npm *)` — 允许所有以 `npm` 开头的命令
+- `Skill(commit)` — 允许执行 `/commit` 技能
+
+### 5.4 启动时指定模式
 
 ```bash
 claude --permission-mode plan  # 规划模式
@@ -400,7 +568,11 @@ claude --permission-mode acceptEdits  # 自动接受
 | `Ctrl+D` | 退出 Claude Code |
 | `Ctrl+L` | 清屏（保留历史）|
 | `Ctrl+O` | 切换详细输出（显示思考过程）|
+| `Ctrl+T` | 打开任务列表 |
+| `Ctrl+B` | 查看后台任务 |
+| `Ctrl+G` | 在外部编辑器中打开 |
 | `Shift+Tab` | 切换权限模式 |
+| `Shift+Enter` | 换行（多行输入）|
 | `Esc+Esc` | 撤销最后的代码改动 |
 | `Option+Enter` | 多行输入（macOS）|
 
@@ -429,6 +601,40 @@ cat complex.ts | claude -p "解释这段代码的逻辑"
 # 引用文件
 > Explain @src/complex-algorithm.ts
 ```
+
+### 6.4 Fast Mode
+
+Fast Mode 使用同一个 Opus 4.6 模型，但以更快的速度生成输出。
+
+```bash
+# 在会话中切换
+/fast
+
+# 特点
+# - 同模型 (Opus 4.6)，更快输出
+# - 定价为标准模式的 6 倍
+# - 适合需要快速迭代的场景
+# - 仅 Opus 4.6 支持
+```
+
+### 6.5 快捷键配置
+
+Claude Code 支持完全自定义快捷键，配置文件位于 `~/.claude/keybindings.json`：
+
+```json
+[
+  {
+    "key": "ctrl+s",
+    "command": "submit"
+  },
+  {
+    "key": "ctrl+shift+t",
+    "command": "tasks"
+  }
+]
+```
+
+使用 `/keybindings` 命令可以快速查看和编辑快捷键配置。
 
 ---
 
@@ -595,17 +801,18 @@ git diff main | claude -p "审查这些改动，给出改进建议"
 
 ## 快速命令
 
-- 开发: `npm run dev`
-- 构建: `npm run build`
-- 测试: `npm run test`
-- 检查: `npm run lint`
+- 开发: `pnpm dev`（Next.js 16 默认使用 Turbopack）
+- 构建: `pnpm build`
+- 测试: `pnpm test`
+- 检查: `pnpm lint`
 
 ## 技术栈
 
-- 语言: TypeScript 5.x
-- 框架: React 18 / Next.js 14
-- 样式: Tailwind CSS
-- 测试: Vitest
+- 语言: TypeScript 5.9
+- 框架: React 19 / Next.js 16
+- 样式: Tailwind CSS v4（CSS-first 配置，无需 tailwind.config.js）
+- 状态管理: Zustand 5
+- 测试: Vitest 4
 
 ## 项目结构
 
@@ -614,7 +821,8 @@ src/
 ├── components/    # 组件
 ├── hooks/         # Hooks
 ├── lib/           # 工具函数
-└── types/         # 类型定义
+├── types/         # 类型定义
+└── proxy.ts       # 请求代理
 
 ## 代码规范
 
@@ -622,6 +830,10 @@ src/
 - 函数式组件 + Hooks
 - 组件文件 PascalCase
 - 工具函数 camelCase
+- React 19: ref 直接作为 props，不需要 forwardRef
+- React 19: 优先使用 Server Components
+- Next.js 16: cookies()/headers()/params 必须 await
+- Tailwind v4: @import "tailwindcss"
 
 ## 关键文件
 
@@ -643,12 +855,14 @@ src/
 | 原则 | 实践方法 |
 |------|---------|
 | **减少搜索开销** | 用 `@` 直接引用文件 |
-| **建立长期记忆** | 维护好 `CLAUDE.md` |
+| **建立长期记忆** | 维护好 `CLAUDE.md` + Auto Memory |
 | **自动化重复操作** | 配置 Hooks |
 | **扩展能力边界** | 集成 MCP Servers |
 | **控制安全边界** | 配置权限白名单/黑名单 |
 | **复杂问题深度思考** | 使用 `ultrathink:` 前缀 |
 | **融入现有工具链** | 善用管道模式 |
+| **管理复杂工作流** | 使用 Task System |
+| **复用最佳实践** | 编写 Skills |
 
 ---
 
@@ -719,9 +933,12 @@ claude --debug "api,mcp"               # 调试模式
 |------|------|
 | `/init` | 初始化项目 CLAUDE.md |
 | `/doctor` | 检查安装健康状况 |
-| `/todos` | 列出当前 TODO |
+| `/tasks` | 列出当前任务 |
 | `/bashes` | 管理后台任务 |
 | `/vim` | 进入 vim 模式 |
+| `/fast` | 切换 Fast Mode（同模型快速输出）|
+| `/teleport` | 将会话转移到 claude.ai/code Web 界面 |
+| `/keybindings` | 查看/编辑快捷键配置 |
 
 #### 集成管理
 
@@ -731,17 +948,75 @@ claude --debug "api,mcp"               # 调试模式
 | `/hooks` | 管理 Hooks |
 | `/agents` | 管理自定义 Agents |
 
+### 10.3 任务管理系统 (Task System)
+
+Claude Code 内置任务管理系统（替代旧的 Todo 系统），通过四个核心工具管理复杂工作流：
+
+#### 核心工具
+
+| 工具 | 功能 | 示例 |
+|------|------|------|
+| `TaskCreate` | 创建任务 | 定义待办事项、描述、活动状态 |
+| `TaskUpdate` | 更新任务 | 修改状态、设置依赖关系 |
+| `TaskGet` | 获取任务 | 查看任务详细信息 |
+| `TaskList` | 列出任务 | 查看所有任务及状态 |
+
+#### 任务依赖关系
+
+任务支持 `blocks` 和 `blockedBy` 依赖，确保执行顺序：
+
+```bash
+# Claude 会自动创建和管理任务
+> 我需要重构认证模块：
+>   1. 先更新数据库 schema
+>   2. 然后修改 API 端点
+>   3. 最后更新前端组件
+
+# Claude 会创建 3 个任务，并设置 2 blockedBy 1，3 blockedBy 2
+```
+
+#### 查看任务
+
+```bash
+# 使用斜杠命令
+/tasks
+
+# 快捷键
+Ctrl+T
+```
+
+#### 特点
+
+- **跨会话持久化**：任务在会话间保留
+- **自动状态管理**：Claude 开始工作时标记 `in_progress`，完成后标记 `completed`
+- **依赖追踪**：被阻塞的任务在依赖完成前不会开始
+
 ---
 
-## 十一、自定义命令
+## 十一、Skills 系统
 
-### 11.1 创建自定义斜杠命令
+Skills 系统（v2.1.3+）统一了斜杠命令和自定义指令，提供更强大的可扩展能力。
 
-在 `.claude/commands/` (项目) 或 `~/.claude/commands/` (全局) 创建 markdown 文件：
+### 11.1 Skills 概述
 
-#### 简单命令
+Skills 是 Claude Code 的扩展机制，将原来的自定义命令（`.claude/commands/`）升级为功能更完整的技能系统。
 
-`.claude/commands/review.md`:
+#### 存放位置
+
+```
+.claude/skills/          # 项目级（提交到 git，团队共享）
+~/.claude/skills/        # 全局级（个人所有项目可用）
+```
+
+> **迁移路径**：`.claude/commands/` 仍然兼容，但建议迁移到 `.claude/skills/`
+
+### 11.2 SKILL.md 文件格式
+
+Skills 使用 Markdown 文件定义，支持 frontmatter 元数据：
+
+#### 简单 Skill
+
+`.claude/skills/review.md`:
 ```markdown
 ---
 description: 代码审查
@@ -756,9 +1031,9 @@ description: 代码审查
 
 使用：`/review`
 
-#### 带参数的命令
+#### 带参数的 Skill
 
-`.claude/commands/fix-issue.md`:
+`.claude/skills/fix-issue.md`:
 ```markdown
 ---
 argument-hint: [issue-number]
@@ -770,27 +1045,45 @@ description: 修复 GitHub Issue
 
 使用：`/fix-issue 123`
 
-#### 多参数命令
+#### 完整 frontmatter 选项
 
-`.claude/commands/create-component.md`:
 ```markdown
 ---
-argument-hint: [component-name] [type: page|ui|feature]
-description: 创建 React 组件
+description: Skill 描述（显示在命令列表中）
+argument-hint: [参数说明]
 ---
 
-在 src/components/$2/ 目录创建 $1 组件，包含：
-- 组件文件 $1.tsx
-- 样式文件 $1.module.css
-- 测试文件 $1.test.tsx
-- index.ts 导出
+Skill 内容...
 ```
 
-使用：`/create-component UserCard ui`
+### 11.3 高级特性
 
-### 11.2 实用自定义命令示例
+#### 热重载
 
-#### 代码审查命令
+修改 SKILL.md 文件后，无需重启 Claude Code，下次调用时自动加载最新版本。
+
+#### 分叉上下文
+
+Skills 在独立的上下文分支中执行，不会污染主对话上下文。执行完成后，结果会合并回主对话。
+
+#### Skill 权限
+
+可以在权限配置中针对 Skill 设置权限：
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Skill(review)",
+      "Skill(commit)"
+    ]
+  }
+}
+```
+
+### 11.4 实用 Skill 示例
+
+#### 代码审查 Skill
 
 ```markdown
 ---
@@ -806,7 +1099,7 @@ description: 安全审查
 5. 生成安全报告
 ```
 
-#### PR 创建命令
+#### PR 创建 Skill
 
 ```markdown
 ---
@@ -820,7 +1113,7 @@ description: 创建 PR
 3. 列出测试清单
 ```
 
-#### 测试生成命令
+#### 测试生成 Skill
 
 ```markdown
 ---
@@ -833,6 +1126,23 @@ description: 为文件生成测试
 - 覆盖主要功能和边界情况
 - 包含 mock 和 fixture
 ```
+
+#### 组件创建 Skill
+
+```markdown
+---
+argument-hint: [ComponentName] [type: page|ui|feature]
+description: 创建 React 组件
+---
+
+在 src/components/$2/ 目录创建 $1 组件，包含：
+- 组件文件 $1.tsx
+- 样式文件 $1.module.css
+- 测试文件 $1.test.tsx
+- index.ts 导出
+```
+
+使用：`/create-component UserCard ui`
 
 ---
 
@@ -893,6 +1203,23 @@ claude -r "auth-implementation"
 | 节省 token | 定期 `/compact` 压缩 |
 | 重新开始 | `/clear` 清除历史 |
 
+### 12.6 /teleport 会话转移
+
+使用 `/teleport` 可以将当前终端中的 Claude Code 会话转移到 claude.ai/code Web 界面，保持完整上下文：
+
+```bash
+# 在终端中
+/teleport
+
+# Claude Code 会生成一个链接
+# 在浏览器中打开即可继续对话
+```
+
+**适用场景**：
+- 需要在移动设备上继续工作
+- 想要更好的渲染效果（图片、表格等）
+- 与团队成员共享会话上下文
+
 ---
 
 ## 十三、深入理解 Agent 架构
@@ -908,7 +1235,7 @@ Claude Code 不是简单的"聊天机器人 + 代码执行"，而是一个 **自
 │                                                                  │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
 │  │  用户    │───→│  主Agent │───→│ Sub-Agent│───→│  工具层  │  │
-│  │  输入    │    │  (Opus)  │    │ (Sonnet) │    │ Bash/Edit│  │
+│  │  输入    │    │(Opus 4.6)│    │(Son. 4.5)│    │ Bash/Edit│  │
 │  └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
 │        ↑              │                               │         │
 │        │              ▼                               ▼         │
@@ -1166,19 +1493,19 @@ Ctrl+C
 
 | 模型 | 输入 | 输出 | 适用场景 |
 |------|------|------|---------|
-| Haiku | $0.25 | $1.25 | 简单查询、搜索 |
-| Sonnet | $3 | $15 | 日常开发 |
-| Opus | $15 | $75 | 复杂架构、深度分析 |
+| Haiku 4.5 | $1 | $5 | 简单查询、搜索 |
+| Sonnet 4.5 | $3 | $15 | 日常开发 |
+| Opus 4.6 | $5 | $25 | 复杂架构、深度分析 |
 
 ### 15.2 成本优化技巧
 
 #### 选择合适的模型
 
 ```bash
-# 简单任务用 Haiku/Sonnet
+# 简单任务用 Haiku 4.5/Sonnet 4.5
 claude --model sonnet "修复这个 typo"
 
-# 复杂任务才用 Opus
+# 复杂任务才用 Opus 4.6
 claude --model opus "设计微服务架构"
 ```
 
@@ -1347,7 +1674,7 @@ docker run -it -v $(pwd):/app -w /app node:18 bash
 ```
 .claude/
 ├── settings.json      # 团队共享的权限和 hooks
-├── commands/          # 自定义团队命令
+├── skills/            # 自定义团队 Skills
 │   ├── review.md
 │   ├── deploy.md
 │   └── onboard.md
@@ -1366,7 +1693,7 @@ CLAUDE.local.md               # 个人笔记
 
 ### 17.2 新成员入职
 
-创建入职命令 `.claude/commands/onboard.md`：
+创建入职 Skill `.claude/skills/onboard.md`：
 
 ```markdown
 ---
@@ -1389,7 +1716,7 @@ description: 新成员入职引导
 
 ### 17.3 代码审查标准化
 
-创建审查命令 `.claude/commands/team-review.md`：
+创建审查 Skill `.claude/skills/team-review.md`：
 
 ```markdown
 ---
@@ -1665,7 +1992,7 @@ claude -c  # 继续昨天的会话
 > /clear
 ```
 
-#### ❌ 所有任务都用 Opus
+#### ❌ 所有任务都用 Opus 4.6
 
 **问题**：成本过高
 
@@ -1783,10 +2110,10 @@ claude --model opus
 - 复杂组件拆分到 components/ 子目录
 ```
 
-#### 有用的自定义命令
+#### 有用的自定义 Skill
 
 ```markdown
-<!-- .claude/commands/component.md -->
+<!-- .claude/skills/component.md -->
 ---
 argument-hint: [ComponentName]
 description: 创建标准 React 组件
@@ -2186,13 +2513,19 @@ Claude Code 支持图片输入，可用于：
 #### 安装
 
 ```bash
-npm install @anthropic-ai/claude-code-sdk
+npm install @anthropic-ai/claude-agent-sdk
 ```
+
+> **注意**：包名已从 `@anthropic-ai/claude-code-sdk` 变更为 `@anthropic-ai/claude-agent-sdk`
+
+#### 依赖要求
+
+- zod: ^4.0.0
 
 #### 基本使用
 
 ```typescript
-import { Agent } from '@anthropic-ai/claude-code-sdk';
+import { Agent } from '@anthropic-ai/claude-agent-sdk';
 
 const agent = new Agent({
   model: 'sonnet',
@@ -2343,6 +2676,53 @@ claude
 }
 ```
 
+### 22.7 Agent Teams (实验性)
+
+Agent Teams 允许多个 Claude Code 会话协调工作，并行处理复杂任务。
+
+#### 工作原理
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   Agent Teams                        │
+├─────────────┬─────────────┬─────────────────────────┤
+│  Agent A    │  Agent B    │  Agent C                │
+│ (前端重构)  │ (后端 API)  │ (测试编写)              │
+├─────────────┴─────────────┴─────────────────────────┤
+│            共享任务列表 & 依赖管理                    │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 核心特性
+
+- **多会话协调**：多个 Claude Code 实例并行工作
+- **共享任务列表**：通过 Task System 共享任务状态和依赖
+- **TeammateIdle 事件**：当队友代理空闲时触发 Hook，实现动态任务分配
+
+#### 适用场景
+
+| 场景 | 说明 |
+|------|------|
+| 大型重构 | 多个代理分别处理不同模块 |
+| 前后端并行 | 一个代理写 API，另一个写前端 |
+| 并行调试 | 多个代理同时调查不同可能的原因 |
+| 测试生成 | 一个代理写代码，另一个同步写测试 |
+
+#### 使用方式
+
+```bash
+# 在多个终端窗口中启动 Claude Code
+# 它们会通过共享的任务列表协调工作
+
+# 终端 1
+claude
+> 重构 auth 模块的数据层
+
+# 终端 2
+claude
+> 重构 auth 模块的 API 层（等数据层完成后开始）
+```
+
 ---
 
 ## 附录 A：快捷键完整列表
@@ -2354,8 +2734,12 @@ claude
 | `Ctrl+L` | 清屏 | 保留对话历史 |
 | `Ctrl+O` | 切换详细输出 | 显示工具调用 |
 | `Ctrl+R` | 搜索命令历史 | |
+| `Ctrl+T` | 打开任务列表 | |
+| `Ctrl+B` | 查看后台任务 | |
+| `Ctrl+G` | 在外部编辑器中打开 | |
 | `Ctrl+V` / `Alt+V` | 粘贴图片 | macOS / Windows |
 | `Shift+Tab` | 切换权限模式 | |
+| `Shift+Enter` | 换行 | 多行输入 |
 | `Option+Enter` | 多行输入 | macOS |
 | `\` + `Enter` | 多行输入 | 通用 |
 | `Esc + Esc` | 撤销代码改动 | |
@@ -2378,6 +2762,11 @@ claude
 | `/export` | 导出对话 | 保存重要讨论 |
 | `/rename` | 命名会话 | 便于恢复 |
 | `/resume` | 恢复会话 | 继续之前工作 |
+| `/fast` | 切换快速模式 | 加速输出 |
+| `/tasks` | 查看任务列表 | 管理工作进度 |
+| `/teleport` | 转移到 Web | 切换到浏览器 |
+| `/keybindings` | 快捷键配置 | 自定义按键 |
+| `/hooks` | 管理 Hooks | 配置自动化 |
 
 ---
 
@@ -2395,7 +2784,8 @@ claude
 ╠══════════════════════════════════════════════════════════════════════╣
 ║ 核心快捷键                                                            ║
 ║   Esc+Esc     撤销改动    Ctrl+C      取消操作                        ║
-║   Shift+Tab   切权限      Ctrl+L      清屏                            ║
+║   Shift+Tab   切权限      Ctrl+T      任务列表                        ║
+║   Ctrl+B      后台任务    Ctrl+G      外部编辑器                      ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║ 快捷前缀                                                              ║
 ║   @file       引用文件    !cmd        执行命令                        ║
@@ -2404,16 +2794,18 @@ claude
 ║ 必知命令                                                              ║
 ║   /cost       查成本      /compact    压缩上下文                      ║
 ║   /clear      清历史      /model      切模型                          ║
-║   /memory     编辑记忆    /config     打开设置                        ║
+║   /memory     编辑记忆    /fast       快速模式                        ║
+║   /tasks      任务列表    /teleport   转移会话                        ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║ 模型选择                                                              ║
-║   Haiku   便宜快速 → 简单查询                                         ║
-║   Sonnet  均衡    → 日常开发                                          ║
-║   Opus    强大    → 复杂任务                                          ║
+║   Haiku 4.5  便宜快速 → 简单查询                                      ║
+║   Sonnet 4.5 均衡    → 日常开发                                       ║
+║   Opus 4.6   强大    → 复杂任务                                       ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║ 配置文件位置                                                          ║
 ║   ./CLAUDE.md              项目记忆（提交）                           ║
 ║   ./CLAUDE.local.md        个人笔记（不提交）                         ║
+║   ~/.claude/projects/      自动记忆（Auto Memory）                    ║
 ║   ./.claude/settings.json  项目配置                                   ║
 ║   ~/.claude/settings.json  全局配置                                   ║
 ╚══════════════════════════════════════════════════════════════════════╝
@@ -2421,4 +2813,4 @@ claude
 
 ---
 
-*本指南基于 Claude Code 官方文档整理，更多信息请访问 [claude.com/claude-code](https://claude.com/claude-code)*
+*本指南基于 Claude Code 官方文档整理（2026年2月更新），更多信息请访问 [claude.com/claude-code](https://claude.com/claude-code)*

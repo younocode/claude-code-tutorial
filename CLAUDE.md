@@ -6,24 +6,24 @@
 
 ```bash
 # 开发
-npm run dev          # 启动开发服务器
-npm run build        # 构建生产版本
-npm run test         # 运行测试
-npm run lint         # 代码检查
-npm run format       # 格式化代码
+pnpm dev             # 启动开发服务器（Next.js 16 默认使用 Turbopack）
+pnpm build           # 构建生产版本
+pnpm test            # 运行测试
+pnpm lint            # 代码检查（ESLint 直接配置，Next.js 16 已移除 next lint）
+pnpm format          # 格式化代码
 
 # Git 工作流
-npm run commit       # 提交代码（如使用 commitizen）
+pnpm commit          # 提交代码（如使用 commitizen）
 ```
 
 ## 技术栈
 
-- **语言**: TypeScript 5.x
-- **框架**: React 18 / Next.js 14
-- **状态管理**: Zustand
-- **样式**: Tailwind CSS
-- **测试**: Vitest + React Testing Library
-- **包管理**: pnpm
+- **语言**: TypeScript 5.9
+- **框架**: React 19 / Next.js 16
+- **状态管理**: Zustand 5
+- **样式**: Tailwind CSS v4
+- **测试**: Vitest 4 + React Testing Library
+- **包管理**: pnpm 10
 
 ## 项目结构
 
@@ -36,7 +36,8 @@ src/
 ├── hooks/         # 自定义 Hooks
 ├── lib/           # 工具函数和配置
 ├── types/         # TypeScript 类型定义
-└── styles/        # 全局样式
+├── styles/        # 全局样式（Tailwind v4: CSS-first 配置，使用 @import "tailwindcss"，无需 tailwind.config.js）
+└── proxy.ts       # 请求代理（Next.js 16 替代 middleware.ts 处理代理逻辑）
 ```
 
 ## 代码规范
@@ -47,6 +48,10 @@ src/
 - 工具函数使用 camelCase: `formatDate.ts`
 - 类型定义使用 `interface` 优先于 `type`
 - 导入顺序：外部库 → 内部模块 → 类型 → 样式
+- React 19: ref 直接作为 props 传递，不再需要 forwardRef
+- React 19: 优先使用 Server Components，仅在需要交互时使用 `"use client"`
+- Next.js 16: `cookies()`、`headers()`、`params` 等动态 API 必须 await
+- Tailwind v4: 使用 CSS-first 配置，通过 `@import "tailwindcss"` 引入，无需 `tailwind.config.js`
 
 ## 关键文件
 
@@ -82,7 +87,7 @@ AUTH_SECRET=           # 认证密钥
 
 - 不要直接修改 `node_modules` 或 `dist` 目录
 - 敏感信息放在 `.env.local`，不要硬编码
-- 提交前运行 `npm run lint && npm run test`
+- 提交前运行 `pnpm lint && pnpm test`
 - PR 需要通过 CI 检查才能合并
 
 ## 团队约定
